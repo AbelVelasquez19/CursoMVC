@@ -1,0 +1,226 @@
+﻿
+@{
+    ViewBag.Title = "Index";
+    Layout = "~/Views/Shared/_Layout.cshtml";
+}
+
+<ol class="breadcrumb mb-4 mt-4 " style="border-bottom: 3px solid #212529">
+    <li class="breadcrumb-item"><a href="index.html">Dashboard</a></li>
+    <li class="breadcrumb-item active">Marca</li>
+</ol>
+
+<div class="card mb-4" style="border-bottom: 3px solid #212529">
+    <div class="card-header">
+        <i class="fas fa-users me-1"></i>
+        Lista de marca
+    </div>
+    <div class="card-body">
+        <div class="row">
+            <div class="col-md-12">
+                <button class="btn btn-success btn-sm" onclick="abriModal(null)">Crear nuevo</button>
+            </div>
+            <div class="col-md-12 mt-3">
+                <table id="tabla">
+                    <thead>
+                        <tr>
+                            <th>Descripcion</th>
+                            <th>Activo</th>
+                            <th>Opciones</th>
+                        </tr>
+                    </thead>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+<!-- Modal -->
+<div class="modal fade" id="FormModal" tabindex="-1" aria-labelledby="exampleModalLabel" aria-hidden="true" data-bs-backdrop="static">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="exampleModalLabel">Marca</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="row g-2">
+                    <div class="col-md-6">
+                        <input type="hidden" value="0" id="txtIdMarca">
+                        <div class="bm-3">
+                            <label for="txtDescripcion" class="form-label">Descripcion:</label>
+                            <div class="input-group mb-3">
+                                <span class="input-group-text"><i class="fas fa-eye-dropper"></i></span>
+                                <input type="text" class="form-control" id="txtDescripcion" placeholder="Descripcion" autocomplete="off">
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <label for="cboEstado" class="form-label">Estado:</label>
+                        <div class="input-group mb-3">
+                            <span class="input-group-text"><i class="fas fa-eye-dropper"></i></span>
+                            <select class="form-select" id="cboEstado">
+                                <option selected disabled value="">--Seleccionar--</option>
+                                <option value="1">Activo</option>
+                                <option value="0">Inactivo</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+                <div class="row mt-2">
+                    <div class="col-md-12">
+                        <div id="mensajeError" class="alert alert-danger" role="alert">
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+                <button type="button" class="btn btn-primary" onclick="guardarInformacion()">Guardar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section scripts {
+    <script type="text/javascript">
+
+        let tabladata;
+        let filaSeleccionada;
+        tabladata = $("#tabla").DataTable({
+            responsive: false,
+            ordering: true,
+            "ajax": {
+                 url: '@Url.Action("ListarMarca", "Marca")',
+                type: "GET",
+                dataType: "json",
+                contentType: "application/json; charset=utf-8",
+            },
+            "columns": [
+                { "data": "Descripcion" },
+                {
+                    "data": "Activo", "render": function (valor) {
+                        if (valor) {
+                            return '<span class="badge bg-success">SI</span>'
+                        } else {
+                            return '<span class="badge bg-danger">NO</span>'
+                        }
+                    }
+                },
+                {
+                    "defaultContent": '<button class="btn btn-success btn-sm btn-editar"><i class="fas fa-edit mr-2"></i></button>' + '<button class="btn btn-danger btn-sm ms-2 btn-eliminar"><i class="fas fa-trash me-1"></i></button>',
+                    "orderable": false,
+                    "searchable": false,
+                    "width":"90px"
+                }
+            ],
+            "language": {
+                "url":'https://cdn.datatables.net/plug-ins/1.12.1/i18n/es-ES.json'
+            }
+        });
+
+        function abriModal(json) {
+            $("#txtIdMarca").val(0);
+            $("#txtDescripcion").val("");
+            $("#cboEstado").val(1);
+            $("#mensajeError").hide();
+            if (json != null) {
+                $("#txtIdMarca").val(json.IdMarca);
+                $("#txtDescripcion").val(json.Descripcion);
+                $("#cboEstado").val(json.Activo == true ? 1 : 0);
+            }
+            $("#FormModal").modal("show");
+        }
+
+        $("#tabla tbody").on("click", '.btn-editar', function () {
+            filaSeleccionada = $(this).closest("tr");
+            let data = tabladata.row(filaSeleccionada).data();
+            abriModal(data)
+        })
+
+        function guardarInformacion() {
+            let marca = {
+                IdMarca: $("#txtIdMarca").val(),
+                Activo: $("#cboEstado").val() == 1 ? true:false,
+                Descripcion: $("#txtDescripcion").val(),
+            }
+
+            $.ajax({
+                url: '@Url.Action("GuardarMarca", "Marca")',
+                type: "POST",
+                data: JSON.stringify({ objeto: marca }),
+                dataType: "json",
+                contentType: "application/json; charset=utf-8",
+                success: function (data) {
+                    $(".modal-body").LoadingOverlay("hide");
+                    if (marca.IdMarca == 0) {
+                        if (data.resultado != 0) {
+                            marca.IdMarca = data.resultado;
+                            tabladata.row.add(marca).draw(false);
+                            $("#FormModal").modal("hide");
+                        } else {
+                            $("#mensajeError").text(data.mensaje)
+                            $("#mensajeError").show()
+                        }
+                    } else {
+                        if (data.resultado) {
+                            tabladata.row(filaSeleccionada).data(marca).draw(false);
+                            filaSeleccionada = null;
+                            $("#FormModal").modal("hide");
+                        } else {
+                            $("#mensajeError").text(data.mensaje)
+                            $("#mensajeError").show()
+                        }
+                    }
+                },
+                error: function(error) {
+                    $(".modal-body").LoadingOverlay("hide");
+                    $("#mensajeError").text("Error ajax");
+                    $("#mensajeError").show();
+                },
+                beforeSend: function () {
+                    $(".modal-body").LoadingOverlay("show", {
+                        imageResizeFactor:2,
+                        background: "rgba(165, 190, 100, 0.5)",
+                        size:14
+                    });
+                }
+            })
+        }
+
+        $("#tabla tbody").on("click", '.btn-eliminar', function () {
+            let marcaSeleccionado = $(this).closest("tr");
+            let data = tabladata.row(marcaSeleccionado).data();
+            swal({
+                title: "Está seguro?",
+                text: "¿Desea eliminar categoria?",
+                type: "warning",
+                showCancelButton: true,
+                confirmButtonClass: "btn-primary",
+                confirmButtonText: "Si",
+                cancelButtonText:"NO",
+                closeOnConfirm: true
+            },
+            function () {
+                $.ajax({
+                    url: '@Url.Action("EliminarMarca", "Marca")',
+                    type: "POST",
+                    data: JSON.stringify({ id: data.IdMarca }),
+                    dataType: "json",
+                    contentType: "application/json; charset=utf-8",
+                    success: function (data) {
+                        if (data.respuesta) {
+                            tabladata.row(marcaSeleccionado).remove().draw();
+                        } else {
+                            swal("No se pudo eliminar", data.mensaje, "error");
+                        }
+                    },
+                    error: function (error) {
+                        console.log(error)
+                    }
+                });
+            });
+        })
+    </script>
+}
+
